@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, FC, ChangeEvent, KeyboardEvent, ClipboardEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 
 // --- TYPES ---
@@ -13,6 +14,14 @@ type Mode = 'quotation' | 'production' | 'shipping';
 const baseHeaders = ["图片", "名称", "材料", "数量", "表面处理", "备注"];
 const quotationHeaders = ["单价", "总价"];
 const productionHeaders = ["加工方式", "工艺要求"];
+
+const baseColCount = baseHeaders.length;
+const quotationColCount = quotationHeaders.length;
+const productionColCount = productionHeaders.length;
+
+function cellId(col: number, row: number) {
+  return `${String.fromCharCode(65 + col)}${row + 1}`;
+}
 
 // --- COMPONENTS ---
 
@@ -100,6 +109,8 @@ const EditableCell: FC<EditableCellProps> = ({ cell, onUpdate }) => {
 export default function SpreadsheetPage() {
   const [mode, setMode] = useState<Mode>('quotation');
   const [metaData, setMetaData] = useState({ customerName: '', orderId: '', contactPerson: '', notes: '' });
+  const searchParams = useSearchParams();
+  const taskId = searchParams.get('taskId') ?? '1';
 
   // Separate states for different data sets
   const [baseData, setBaseData] = useState<Row[]>([]);
@@ -107,13 +118,48 @@ export default function SpreadsheetPage() {
   const [productionExtraData, setProductionExtraData] = useState<Row[]>([]);
 
   useEffect(() => {
-    fetch('/api/spreadsheet').then(res => res.json()).then(data => {
-      setMetaData(data.meta);
-      setBaseData(data.baseData);
-      setQuotationExtraData(data.quotationExtraData);
-      setProductionExtraData(data.productionExtraData);
-    });
-  }, []);
+    fetch(`/api/spreadsheet?taskId=${taskId}`)
+      .then(res => res.json())
+      .then(data => {
+        setMetaData(data.meta || {});
+        const cells = data.cells as { row: number; col: number; type: 'text' | 'image'; content: string }[];
+        const rows = cells.length ? Math.max(...cells.map(c => c.row)) + 1 : 0;
+        const base: Row[] = [];
+        const quotation: Row[] = [];
+        const production: Row[] = [];
+
+        for (let r = 0; r < rows; r++) {
+          base[r] = [];
+          for (let c = 0; c < baseColCount; c++) {
+            base[r][c] = { id: cellId(c, r), type: 'text', content: '' };
+          }
+          quotation[r] = [];
+          for (let c = 0; c < quotationColCount; c++) {
+            quotation[r][c] = { id: cellId(baseColCount + c, r), type: 'text', content: '' };
+          }
+          production[r] = [];
+          for (let c = 0; c < productionColCount; c++) {
+            production[r][c] = { id: cellId(baseColCount + quotationColCount + c, r), type: 'text', content: '' };
+          }
+        }
+
+        cells.forEach(cell => {
+          if (cell.col < baseColCount) {
+            base[cell.row][cell.col] = { id: cellId(cell.col, cell.row), type: cell.type, content: cell.content };
+          } else if (cell.col < baseColCount + quotationColCount) {
+            const idx = cell.col - baseColCount;
+            quotation[cell.row][idx] = { id: cellId(cell.col, cell.row), type: cell.type, content: cell.content };
+          } else {
+            const idx = cell.col - baseColCount - quotationColCount;
+            production[cell.row][idx] = { id: cellId(cell.col, cell.row), type: cell.type, content: cell.content };
+          }
+        });
+
+        setBaseData(base);
+        setQuotationExtraData(quotation);
+        setProductionExtraData(production);
+      });
+  }, [taskId]);
 
   // Derive current headers and data to display based on the selected mode
   const { currentHeaders, displayData } = (() => {
@@ -148,36 +194,32 @@ export default function SpreadsheetPage() {
   })();
   
   const handleUpdateCell = async (rowIndex: number, colIndex: number, newContent: string, newType: 'text' | 'image') => {
-    const baseColCount = baseData[0]?.length || 0;
-    let modeType: 'base' | 'quotation' | 'production' = 'base';
-    let targetCol = colIndex;
-
-    if (colIndex < baseColCount) {
-      modeType = 'base';
-    } else {
-      targetCol = colIndex - baseColCount;
-      modeType = mode === 'quotation' ? 'quotation' : 'production';
+    let globalCol = colIndex;
+    if (mode === 'production' && colIndex >= baseColCount) {
+      globalCol = baseColCount + quotationColCount + (colIndex - baseColCount);
     }
 
-    const res = await fetch('/api/spreadsheet', {
+    const res = await fetch(`/api/spreadsheet?taskId=${taskId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rowIndex, colIndex: targetCol, content: newContent, type: newType, mode: modeType })
+      body: JSON.stringify({ rowIndex, colIndex: globalCol, content: newContent, type: newType })
     });
     const data = await res.json();
     const updatedContent = data.content;
 
-    if (modeType === 'base') {
+    if (globalCol < baseColCount) {
       const newData = [...baseData];
-      newData[rowIndex][colIndex] = { ...newData[rowIndex][colIndex], content: updatedContent, type: newType };
+      newData[rowIndex][globalCol] = { ...newData[rowIndex][globalCol], content: updatedContent, type: newType };
       setBaseData(newData);
-    } else if (modeType === 'quotation') {
+    } else if (globalCol < baseColCount + quotationColCount) {
+      const idx = globalCol - baseColCount;
       const newData = [...quotationExtraData];
-      newData[rowIndex][targetCol] = { ...newData[rowIndex][targetCol], content: updatedContent, type: newType };
+      newData[rowIndex][idx] = { ...newData[rowIndex][idx], content: updatedContent, type: newType };
       setQuotationExtraData(newData);
     } else {
+      const idx = globalCol - baseColCount - quotationColCount;
       const newData = [...productionExtraData];
-      newData[rowIndex][targetCol] = { ...newData[rowIndex][targetCol], content: updatedContent, type: newType };
+      newData[rowIndex][idx] = { ...newData[rowIndex][idx], content: updatedContent, type: newType };
       setProductionExtraData(newData);
     }
   };
@@ -185,7 +227,7 @@ export default function SpreadsheetPage() {
   const handleMetaChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setMetaData(prev => ({ ...prev, [name]: value }));
-    fetch('/api/spreadsheet', {
+    fetch(`/api/spreadsheet?taskId=${taskId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ meta: { [name]: value } })
