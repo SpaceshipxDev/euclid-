@@ -97,8 +97,7 @@ const EditableCell: FC<EditableCellProps> = ({ cell, onUpdate }) => {
 
 
 // --- MAIN PAGE COMPONENT ---
-export default function SpreadsheetPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default function SpreadsheetPage() {
   const [mode, setMode] = useState<Mode>('quotation');
   const [metaData, setMetaData] = useState({ customerName: '', orderId: '', contactPerson: '', notes: '' });
 
@@ -108,13 +107,13 @@ export default function SpreadsheetPage({ params }: { params: { id: string } }) 
   const [productionExtraData, setProductionExtraData] = useState<Row[]>([]);
 
   useEffect(() => {
-    fetch(`/api/tasks/${id}`).then(res => res.json()).then(data => {
+    fetch('/api/spreadsheet').then(res => res.json()).then(data => {
       setMetaData(data.meta);
       setBaseData(data.baseData);
       setQuotationExtraData(data.quotationExtraData);
       setProductionExtraData(data.productionExtraData);
     });
-  }, [id]);
+  }, []);
 
   // Derive current headers and data to display based on the selected mode
   const { currentHeaders, displayData } = (() => {
@@ -148,28 +147,22 @@ export default function SpreadsheetPage({ params }: { params: { id: string } }) 
     }
   })();
   
-  
-const handleUpdateCell = async (rowIndex: number, colIndex: number, newContent: string, newType: 'text' | 'image') => {
-    const baseColCount = baseHeaders.length;
-    const extraColCount = quotationHeaders.length;
+  const handleUpdateCell = async (rowIndex: number, colIndex: number, newContent: string, newType: 'text' | 'image') => {
+    const baseColCount = baseData[0]?.length || 0;
     let modeType: 'base' | 'quotation' | 'production' = 'base';
     let targetCol = colIndex;
-    let absCol = colIndex;
 
-    if (mode === 'quotation' && colIndex >= baseColCount) {
-      modeType = 'quotation';
+    if (colIndex < baseColCount) {
+      modeType = 'base';
+    } else {
       targetCol = colIndex - baseColCount;
-      absCol = baseColCount + targetCol;
-    } else if (mode === 'production' && colIndex >= baseColCount) {
-      modeType = 'production';
-      targetCol = colIndex - baseColCount;
-      absCol = baseColCount + extraColCount + targetCol;
+      modeType = mode === 'quotation' ? 'quotation' : 'production';
     }
 
-    const res = await fetch(`/api/tasks/${id}`, {
+    const res = await fetch('/api/spreadsheet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rowIndex, colIndex: absCol, content: newContent, type: newType })
+      body: JSON.stringify({ rowIndex, colIndex: targetCol, content: newContent, type: newType, mode: modeType })
     });
     const data = await res.json();
     const updatedContent = data.content;
@@ -188,22 +181,11 @@ const handleUpdateCell = async (rowIndex: number, colIndex: number, newContent: 
       setProductionExtraData(newData);
     }
   };
-      setBaseData(newData);
-    } else if (modeType === 'quotation') {
-      const newData = [...quotationExtraData];
-      newData[rowIndex][targetCol] = { ...newData[rowIndex][targetCol], content: updatedContent, type: newType };
-      setQuotationExtraData(newData);
-    } else {
-      const newData = [...productionExtraData];
-      newData[rowIndex][targetCol] = { ...newData[rowIndex][targetCol], content: updatedContent, type: newType };
-      setProductionExtraData(newData);
-    }
-  };
 
   const handleMetaChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setMetaData(prev => ({ ...prev, [name]: value }));
-    fetch(`/api/tasks/${id}`, {
+    fetch('/api/spreadsheet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ meta: { [name]: value } })
