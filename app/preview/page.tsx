@@ -1,43 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect, FC, ChangeEvent, KeyboardEvent, ClipboardEvent } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import { Cell, Row, Mode } from "../../lib/types";
+import { defaultBaseData, defaultQuotationData, defaultProductionData, defaultMeta } from "../../lib/defaultData";
 
-// --- TYPES ---
-type Cell = { id: string; type: 'text' | 'image'; content: string };
-type Row = Cell[];
-type Mode = 'quotation' | 'production' | 'shipping';
-
-// --- INITIAL DATA ---
-// Base data, common to all modes
-const initialBaseData: Row[] = [
-  [
-    { id: "A1", type: 'text', content: "" }, { id: "B1", type: 'text', content: "M3 Pro 笔记本电脑" },
-    { id: "C1", type: 'text', content: "铝合金" }, { id: "D1", type: 'text', content: "100" },
-    { id: "E1", type: 'text', content: "深空黑" }, { id: "F1", type: 'text', content: "加急订单" },
-  ],
-  [
-    { id: "A2", type: 'text', content: "" }, { id: "B2", type: 'text', content: "无线充电底座" },
-    { id: "C2", type: 'text', content: "PC+ABS" }, { id: "D2", type: 'text', content: "500" },
-    { id: "E2", type: 'text', content: "类肤质喷涂" }, { id: "F2", type: 'text', content: "需定制Logo" },
-  ],
-  [
-    { id: "A3", type: 'text', content: "" }, { id: "B3", type: 'text', content: "精密仪器外壳" },
-    { id: "C3", type: 'text', content: "不锈钢 304" }, { id: "D3", type: 'text', content: "250" },
-    { id: "E3", type: 'text', content: "镜面抛光" }, { id: "F3", type: 'text', content: "" },
-  ],
-];
-
-// Mode-specific data, initialized to match the number of rows in baseData
-const initialQuotationData: Row[] = initialBaseData.map((row, rIndex) => [
-  { id: `G${rIndex+1}`, type: 'text', content: `${(Math.random() * 500 + 100).toFixed(2)}` },
-  { id: `H${rIndex+1}`, type: 'text', content: '' }, // Total price will be calculated
-]);
-
-const initialProductionData: Row[] = initialBaseData.map((row, rIndex) => [
-  { id: `G${rIndex+1}`, type: 'text', content: "CNC 5轴" },
-  { id: `H${rIndex+1}`, type: 'text', content: "公差 +/- 0.02mm" },
-]);
 
 
 // --- HEADERS ---
@@ -99,9 +66,11 @@ const EditableCell: FC<EditableCellProps> = ({ cell, onUpdate }) => {
     const items = e.clipboardData.items;
     const imageFile = Array.from(items).find(item => item.type.startsWith('image/'))?.getAsFile();
     if (imageFile) {
-      const reader = new FileReader();
-      reader.onloadend = () => onUpdate(reader.result as string, 'image');
-      reader.readAsDataURL(imageFile);
+      const formData = new FormData();
+      formData.append('file', imageFile);
+      fetch('/api/upload', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => onUpdate(data.path, 'image'));
     } else {
       const text = e.clipboardData.getData('text/plain');
       if (text) onUpdate(text, 'text');
@@ -130,12 +99,21 @@ const EditableCell: FC<EditableCellProps> = ({ cell, onUpdate }) => {
 // --- MAIN PAGE COMPONENT ---
 export default function SpreadsheetPage() {
   const [mode, setMode] = useState<Mode>('quotation');
-  const [metaData, setMetaData] = useState({ customerName: 'Apple Inc.', orderId: `QUO-${new Date().getFullYear()}-0815`, contactPerson: 'Tim Cook', notes: 'Urgent project for visionOS.' });
-  
+  const [metaData, setMetaData] = useState(defaultMeta);
+
   // Separate states for different data sets
-  const [baseData, setBaseData] = useState<Row[]>(initialBaseData);
-  const [quotationExtraData, setQuotationExtraData] = useState<Row[]>(initialQuotationData);
-  const [productionExtraData, setProductionExtraData] = useState<Row[]>(initialProductionData);
+  const [baseData, setBaseData] = useState<Row[]>(defaultBaseData);
+  const [quotationExtraData, setQuotationExtraData] = useState<Row[]>(defaultQuotationData);
+  const [productionExtraData, setProductionExtraData] = useState<Row[]>(defaultProductionData);
+
+  useEffect(() => {
+    fetch('/api/sheet/default').then(res => res.json()).then(data => {
+      setMetaData(data.meta);
+      setBaseData(data.baseData);
+      setQuotationExtraData(data.quotationData);
+      setProductionExtraData(data.productionData);
+    });
+  }, []);
 
   // Derive current headers and data to display based on the selected mode
   const { currentHeaders, displayData } = (() => {
@@ -169,13 +147,17 @@ export default function SpreadsheetPage() {
     }
   })();
   
-  const handleUpdateCell = (rowIndex: number, colIndex: number, newContent: string) => {
+  const handleUpdateCell = (rowIndex: number, colIndex: number, newContent: string, newType: 'text' | 'image') => {
     const baseColCount = baseData[0].length;
-    
+    let cellId = '';
+    let modeForDb: Mode | 'base' = 'base';
+
     if (colIndex < baseColCount) {
       // Update is in the base data
       const newData = [...baseData];
       newData[rowIndex][colIndex].content = newContent;
+      newData[rowIndex][colIndex].type = newType;
+      cellId = newData[rowIndex][colIndex].id;
       setBaseData(newData);
     } else {
       // Update is in the mode-specific extra data
@@ -183,17 +165,35 @@ export default function SpreadsheetPage() {
       if (mode === 'quotation') {
         const newData = [...quotationExtraData];
         newData[rowIndex][extraColIndex].content = newContent;
+        newData[rowIndex][extraColIndex].type = newType;
+        cellId = newData[rowIndex][extraColIndex].id;
+        modeForDb = 'quotation';
         setQuotationExtraData(newData);
       } else if (mode === 'production') {
         const newData = [...productionExtraData];
         newData[rowIndex][extraColIndex].content = newContent;
+        newData[rowIndex][extraColIndex].type = newType;
+        cellId = newData[rowIndex][extraColIndex].id;
+        modeForDb = 'production';
         setProductionExtraData(newData);
       }
     }
+
+    fetch('/api/cell', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sheetId: 'default', mode: modeForDb, cellId, type: newType, content: newContent })
+    });
   };
 
   const handleMetaChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setMetaData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setMetaData(prev => ({ ...prev, [name]: value }));
+    fetch('/api/sheet/default', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [name]: value })
+    });
   };
 
   const handlePrint = () => {
@@ -260,7 +260,7 @@ export default function SpreadsheetPage() {
                     <div key={cell.id} className="border-t border-r border-neutral-200/50 dark:border-neutral-800/70 print:border-neutral-300">
                       <EditableCell
                         cell={cell}
-                        onUpdate={(newContent) => handleUpdateCell(rowIndex, colIndex, newContent)}
+                        onUpdate={(newContent, newType) => handleUpdateCell(rowIndex, colIndex, newContent, newType)}
                       />
                     </div>
                   ))}
