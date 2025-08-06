@@ -12,7 +12,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { AnimatePresence, motion } from "framer-motion";
-import { Separator } from "@/components/ui/separator";
+import Spreadsheet from "@/components/Spreadsheet";
 
 /* ────────────────────────────────  📑  TYPES & UTILS  ───────────────────────────── */
 
@@ -44,7 +44,7 @@ const formatRelativeTime = (date: Date) => {
 /* ────────────────────────────────  📋  COLUMN SETUP  ───────────────────────────── */
 
 const columns: ColumnData[] = [
-  { id: "quotation", title: "报价" },
+  { id: "create", title: "建单" },
   { id: "order", title: "制单" },
   { id: "approval", title: "审批" },
   { id: "outsourcing", title: "外协" },
@@ -52,36 +52,6 @@ const columns: ColumnData[] = [
   { id: "machine", title: "操机" },
   { id: "inspection", title: "检验" },
 ];
-
-const sampleTitles = [
-  "精密零件加工",
-  "复杂模具制作",
-  "产品原型组装",
-  "关键尺寸检测",
-  "表面阳极处理",
-  "热处理工艺优化",
-];
-const randomTitle = () =>
-  sampleTitles[Math.floor(Math.random() * sampleTitles.length)];
-
-const generateSampleTasks = (col: string, count: number): Task[] =>
-  Array.from({ length: count }, (_, i) => ({
-    id: `${col.toUpperCase()}-${String(i + 1).padStart(4, "0")}`,
-    title: `${randomTitle()} #${i + 1}`,
-    dueDate: new Date(
-      Date.now() + (Math.random() * 20 + 2) * 86400000,
-    ).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" }),
-    lastEdited: new Date(Date.now() - Math.random() * 5 * 86400000),
-  }));
-
-const generatePendingTasks = (col: string): PendingTask[] =>
-  Math.random() > 0.7
-    ? []
-    : Array.from({ length: Math.floor(Math.random() * 2) + 1 }, (_, i) => ({
-        id: `PENDING-${col.toUpperCase()}-${i + 1}`,
-        title: `待处理任务 #${i + 1}`,
-        from: columns[Math.floor(Math.random() * columns.length)].title,
-      }));
 
 /* ────────────────────────────────  🆕  TASK DRAWER  ───────────────────────────── */
 
@@ -113,68 +83,23 @@ const TaskDrawer = ({ task, onClose }: TaskDrawerProps) => {
         onClick={onClose}
       />
       <motion.div
-        className="fixed inset-y-0 right-0 z-50 w-full rounded-l-2xl border-l border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 md:w-5/6 lg:w-4/6"
+        className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white dark:bg-zinc-900 md:w-5/6 lg:w-4/6"
         variants={drawer}
         initial="hidden"
         animate="visible"
         exit="exit"
         aria-modal="true"
       >
-        <div className="flex h-full flex-col">
-          {/* header */}
-          <div className="flex items-center justify-between p-4 pl-6 md:p-6">
-            <h2 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-              {task.title}
-            </h2>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" className="rounded-lg border-zinc-300 dark:border-zinc-700">
-                编辑任务
-              </Button>
-              <Separator orientation="vertical" className="mx-1 h-6 bg-zinc-200 dark:bg-zinc-700" />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
-                onClick={onClose}
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-          <Separator className="bg-zinc-200 dark:bg-zinc-800" />
-
-          {/* content */}
-          <div className="flex-1 overflow-y-auto p-6 md:p-8">
-            <div className="mx-auto max-w-2xl space-y-8">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">任务 ID</p>
-                <p className="font-mono text-base text-zinc-900 dark:text-zinc-100">{task.id}</p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">截止日期</p>
-                  <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                    {task.dueDate}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">上次编辑</p>
-                  <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                    {formatRelativeTime(task.lastEdited)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">任务描述</h3>
-                <p className="text-base leading-relaxed text-zinc-700 dark:text-zinc-300">
-                  此处应包含任务的详细描述，例如具体要求、附件或相关文档。
-                  这只是示例文本，用于测试滚动行为。
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="relative h-full">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-4 top-4 h-9 w-9 rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
+            onClick={onClose}
+          >
+            <X className="h-5 w-5" />
+          </Button>
+          <Spreadsheet taskId={task.id} />
         </div>
       </motion.div>
     </>
@@ -195,20 +120,21 @@ export default function KanbanPage() {
   const [newTaskId, setNewTaskId] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  /* generate demo data client-side */
   useEffect(() => {
-    setTasks(
-      columns.reduce<Record<string, Task[]>>(
-        (a, c) => ({ ...a, [c.id]: generateSampleTasks(c.id, Math.floor(Math.random() * 6) + 3) }),
-        {},
-      ),
-    );
-    setPending(
-      columns.reduce<Record<string, PendingTask[]>>(
-        (a, c) => ({ ...a, [c.id]: generatePendingTasks(c.id) }),
-        {},
-      ),
-    );
+    fetch("/api/tasks")
+      .then((res) => res.json())
+      .then((data) => {
+        const map = columns.reduce<Record<string, Task[]>>((a, c) => ({ ...a, [c.id]: [] }), {});
+        data.tasks.forEach((t: any) => {
+          map[columns[0].id].push({
+            id: String(t.id),
+            title: t.meta?.orderId || String(t.id),
+            dueDate: new Date().toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" }),
+            lastEdited: new Date(),
+          });
+        });
+        setTasks(map);
+      });
   }, []);
 
   /* refresh “2h ago” every minute */
@@ -229,15 +155,36 @@ export default function KanbanPage() {
   };
 
   /* task ops */
-  const addTask = () => {
+  const addTask = async () => {
     if (!newTaskId.trim() || !activeColumn) return;
-    const t: Task = {
-      id: newTaskId.toUpperCase(),
-      title: `新任务: ${newTaskId}`,
-      dueDate: new Date().toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" }),
-      lastEdited: new Date(),
-    };
-    setTasks((p) => ({ ...p, [activeColumn.id]: [t, ...p[activeColumn.id]] }));
+    if (activeColumn.id === columns[0].id) {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meta: { orderId: newTaskId } }),
+      });
+      const data = await res.json();
+      const t: Task = {
+        id: String(data.id),
+        title: newTaskId,
+        dueDate: new Date().toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" }),
+        lastEdited: new Date(),
+      };
+      setTasks((p) => ({ ...p, [activeColumn.id]: [t, ...p[activeColumn.id]] }));
+    } else {
+      const res = await fetch("/api/tasks");
+      const data = await res.json();
+      const existing = data.tasks.find((t: any) => t.meta?.orderId === newTaskId);
+      if (existing) {
+        const t: Task = {
+          id: String(existing.id),
+          title: existing.meta.orderId,
+          dueDate: new Date().toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" }),
+          lastEdited: new Date(),
+        };
+        setTasks((p) => ({ ...p, [activeColumn.id]: [t, ...p[activeColumn.id]] }));
+      }
+    }
     closeDialog();
   };
   const acceptPending = (c: string, id: string) => {
