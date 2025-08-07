@@ -156,7 +156,8 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
       .then((data) => {
         setMetaData(data.meta || {});
         const cells = data.cells as { row: number; col: number; type: 'text' | 'image'; content: string }[];
-        const rows = cells.length ? Math.max(...cells.map((c) => c.row)) + 1 : 0;
+        const fetchedRows = cells.length ? Math.max(...cells.map((c) => c.row)) + 1 : 0;
+        const rows = fetchedRows > 0 ? fetchedRows : 4;
         const base: Row[] = [];
         const quotation: Row[] = [];
         const production: Row[] = [];
@@ -270,6 +271,29 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
     });
   };
 
+  const handleAddNewRow = () => {
+    const newRowIndex = displayData.length;
+    const newBaseRow: Row = Array.from({ length: baseColCount }, (_, c) => ({
+      id: cellId(c, newRowIndex),
+      type: 'text',
+      content: '',
+    }));
+    const newQuotationRow: Row = Array.from({ length: quotationColCount }, (_, c) => ({
+      id: cellId(baseColCount + c, newRowIndex),
+      type: 'text',
+      content: '',
+    }));
+    const newProductionRow: Row = Array.from({ length: productionColCount }, (_, c) => ({
+      id: cellId(baseColCount + quotationColCount + c, newRowIndex),
+      type: 'text',
+      content: '',
+    }));
+
+    setBaseData((prev) => [...prev, newBaseRow]);
+    setQuotationExtraData((prev) => [...prev, newQuotationRow]);
+    setProductionExtraData((prev) => [...prev, newProductionRow]);
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -369,6 +393,27 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
               ))}
             </div>
           </div>
+        </div>
+        <div className="flex justify-center mt-4 print:hidden">
+          <button
+            onClick={handleAddNewRow}
+            className="p-2 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors"
+            aria-label="Add new row"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
         </div>
       </motion.div>
     </main>
