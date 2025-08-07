@@ -16,6 +16,9 @@ const productionHeaders = ["加工方式", "工艺要求"];
 const baseColCount = baseHeaders.length;
 const quotationColCount = quotationHeaders.length;
 const productionColCount = productionHeaders.length;
+const outsourcingColIndex = baseColCount - 1;
+const baseHeadersWithoutOutsourcing = baseHeaders.slice(0, outsourcingColIndex);
+const outsourcingHeader = baseHeaders[outsourcingColIndex];
 
 function cellId(col: number, row: number) {
   return `${String.fromCharCode(65 + col)}${row + 1}`;
@@ -216,8 +219,10 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
     switch (mode) {
       case 'quotation':
         return {
-          currentHeaders: [...baseHeaders, ...quotationHeaders],
+          currentHeaders: [...baseHeadersWithoutOutsourcing, ...quotationHeaders, outsourcingHeader],
           displayData: baseData.map((row, i) => {
+            const outsourcingCell = row[outsourcingColIndex];
+            const baseWithoutOutsourcing = row.slice(0, outsourcingColIndex);
             const quantity = parseFloat(row[3].content) || 0;
             const unitPrice = parseFloat(quotationExtraData[i][0].content) || 0;
             const totalPrice = quantity * unitPrice;
@@ -225,24 +230,28 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
               { ...quotationExtraData[i][0] },
               { ...quotationExtraData[i][1], content: totalPrice > 0 ? totalPrice.toFixed(2) : '' },
             ];
-            return [...row, ...calculatedRow];
+            return [...baseWithoutOutsourcing, ...calculatedRow, outsourcingCell];
           }),
-        };
-      case 'outsourcing':
-        return {
-          currentHeaders: baseHeaders,
-          displayData: baseData,
         };
       case 'production':
         return {
-          currentHeaders: [...baseHeaders, ...productionHeaders],
-          displayData: baseData.map((row, i) => [...row, ...productionExtraData[i]]),
+          currentHeaders: [...baseHeadersWithoutOutsourcing, ...productionHeaders, outsourcingHeader],
+          displayData: baseData.map((row, i) => {
+            const outsourcingCell = row[outsourcingColIndex];
+            const baseWithoutOutsourcing = row.slice(0, outsourcingColIndex);
+            return [...baseWithoutOutsourcing, ...productionExtraData[i], outsourcingCell];
+          }),
         };
+      case 'outsourcing':
       case 'shipping':
       default:
         return {
-          currentHeaders: baseHeaders,
-          displayData: baseData,
+          currentHeaders: [...baseHeadersWithoutOutsourcing, outsourcingHeader],
+          displayData: baseData.map((row) => {
+            const outsourcingCell = row[outsourcingColIndex];
+            const baseWithoutOutsourcing = row.slice(0, outsourcingColIndex);
+            return [...baseWithoutOutsourcing, outsourcingCell];
+          }),
         };
     }
   })();
@@ -253,9 +262,30 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
     newContent: string,
     newType: 'text' | 'image' | 'checkbox'
   ) => {
-    let globalCol = colIndex;
-    if (mode === 'production' && colIndex >= baseColCount) {
-      globalCol = baseColCount + quotationColCount + (colIndex - baseColCount);
+    let globalCol;
+
+    if (mode === 'quotation') {
+      if (colIndex < baseColCount - 1) {
+        globalCol = colIndex;
+      } else if (colIndex < baseColCount - 1 + quotationColCount) {
+        globalCol = baseColCount + (colIndex - (baseColCount - 1));
+      } else {
+        globalCol = outsourcingColIndex;
+      }
+    } else if (mode === 'production') {
+      if (colIndex < baseColCount - 1) {
+        globalCol = colIndex;
+      } else if (colIndex < baseColCount - 1 + productionColCount) {
+        globalCol = baseColCount + quotationColCount + (colIndex - (baseColCount - 1));
+      } else {
+        globalCol = outsourcingColIndex;
+      }
+    } else {
+      if (colIndex < baseColCount - 1) {
+        globalCol = colIndex;
+      } else {
+        globalCol = outsourcingColIndex;
+      }
     }
 
     const res = await fetch(`/api/spreadsheet?taskId=${taskId}`, {
@@ -383,7 +413,7 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
           <div className="overflow-x-auto">
             <div
               className="grid w-full"
-              style={{ gridTemplateColumns: `50px repeat(${currentHeaders.length}, minmax(150px, 1fr))` }}
+              style={{ gridTemplateColumns: `50px repeat(${currentHeaders.length - 1}, minmax(150px, 1fr)) 60px` }}
             >
               <div className="sticky top-0 z-10 print:hidden"></div>
               {currentHeaders.map((header) => (
