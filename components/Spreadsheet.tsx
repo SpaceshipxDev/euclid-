@@ -9,7 +9,8 @@ type Row = Cell[];
 type Mode = 'quotation' | 'outsourcing' | 'production' | 'shipping';
 
 // --- HEADERS ---
-const baseHeaders = ["图片", "名称", "材料", "数量", "表面处理", "备注", "外协"];
+
+const baseHeaders = ["图片", "名称", "材料", "表面处理", "备注", "数量", "外协"];
 const quotationHeaders = ["单价", "总价"];
 const productionHeaders = ["加工方式", "工艺要求"];
 
@@ -30,7 +31,7 @@ function cellId(col: number, row: number) {
 const ModeSelector: FC<{ selected: Mode; onSelect: (mode: Mode) => void }> = ({ selected, onSelect }) => {
   const modes: { id: Mode; label: string }[] = [
     { id: 'quotation', label: '报价单' },
-    { id: 'outsourcing', label: '外发单' },
+    { id: 'outsourcing', label: '采购单' },
     { id: 'production', label: '生产单' },
     { id: 'shipping', label: '出货单' },
   ];
@@ -264,7 +265,7 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
   ) => {
     let globalCol;
 
-    if (mode === 'quotation') {
+    if (mode === 'quotation' || mode === 'outsourcing') {
       if (colIndex < baseColCount - 1) {
         globalCol = colIndex;
       } else if (colIndex < baseColCount - 1 + quotationColCount) {
@@ -361,7 +362,7 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
       >
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-8 print:hidden">
           <div className="flex-1">
-            <h1 className="text-3xl sm:text-4xl font-light tracking-tight">物料清单</h1>
+            <h1 className="text-3xl sm:text-4xl font-light tracking-tight">订单描述</h1>
             <p className="text-neutral-500 dark:text-neutral-400 mt-2">选择模式以查看不同信息，或打印单据。</p>
           </div>
           <div className="flex items-center gap-4">
