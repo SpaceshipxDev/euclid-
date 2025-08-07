@@ -244,6 +244,21 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
           }),
         };
       case 'outsourcing':
+        return {
+          currentHeaders: [...baseHeadersWithoutOutsourcing, ...quotationHeaders, outsourcingHeader],
+          displayData: baseData.map((row, i) => {
+            const outsourcingCell = row[outsourcingColIndex];
+            const baseWithoutOutsourcing = row.slice(0, outsourcingColIndex);
+            const quantity = parseFloat(row[3].content) || 0;
+            const unitPrice = parseFloat(quotationExtraData[i][0].content) || 0;
+            const totalPrice = quantity * unitPrice;
+            const calculatedRow = [
+              { ...quotationExtraData[i][0] },
+              { ...quotationExtraData[i][1], content: totalPrice > 0 ? totalPrice.toFixed(2) : '' },
+            ];
+            return [...baseWithoutOutsourcing, ...calculatedRow, outsourcingCell];
+          }),
+        };
       case 'shipping':
       default:
         return {

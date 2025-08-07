@@ -105,7 +105,25 @@ export default function PrintPage({ params }: { params: { mode: Mode } }) {
             });
             break;
           }
-          case "outsourcing":
+          case "outsourcing": {
+            const headersBefore = baseHeadersWithoutOutsourcing.slice(0, 4);
+            const headersAfter = baseHeadersWithoutOutsourcing.slice(4);
+            currentHeaders = [...headersBefore, ...quotationHeaders, ...headersAfter, outsourcingHeader];
+            displayData = base.map((row, i) => {
+              const outsourcingCell = row[outsourcingColIndex];
+              const basePart1 = row.slice(0, 4);
+              const basePart2 = row.slice(4, outsourcingColIndex);
+              const quantity = parseFloat(row[3].content) || 0;
+              const unitPrice = parseFloat(quotation[i][0].content) || 0;
+              const totalPrice = quantity * unitPrice;
+              const calculated = [
+                { ...quotation[i][0] },
+                { ...quotation[i][1], content: totalPrice > 0 ? totalPrice.toFixed(2) : "" },
+              ];
+              return [...basePart1, ...calculated, ...basePart2, outsourcingCell];
+            });
+            break;
+          }
           case "shipping":
           default: {
             currentHeaders = [...baseHeadersWithoutOutsourcing, outsourcingHeader];
