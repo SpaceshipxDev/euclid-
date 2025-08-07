@@ -347,7 +347,8 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
   };
 
   const handlePrint = () => {
-    window.print();
+    const url = `/print/${mode}?taskId=${taskId}`;
+    window.open(url, '_blank');
   };
 
   return (
