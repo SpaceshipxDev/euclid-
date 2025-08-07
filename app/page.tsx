@@ -49,7 +49,6 @@ const columns: ColumnData[] = [
   { id: "quote", title: "报价" },
   { id: "order", title: "制单" },
   { id: "approval", title: "审批" },
-  { id: "outsourcing", title: "外协" },
   { id: "daohe", title: "道禾" },
   { id: "programming", title: "编程" },
   { id: "machine", title: "操机" },
@@ -57,6 +56,7 @@ const columns: ColumnData[] = [
   { id: "surface", title: "表面处理" },
   { id: "inspection", title: "检验" },
   { id: "shipping", title: "出货" },
+  { id: "outsourcing", title: "外协" },
 ];
 
 /* ────────────────────────────────  🎯  ULTRA-MODERN FULL-SCREEN EDITOR  ───────────────────────────── */
