@@ -10,7 +10,14 @@ import shippingStyles from "../shipping.module.css";
 type Mode = "quotation" | "outsourcing" | "production" | "shipping";
 
 type Cell = { type: string; content: string };
-type MetaData = { customerName?: string; contactPerson?: string; orderId?: string; notes?: string };
+type MetaData = { 
+  customerName?: string; 
+  contactPerson?: string; 
+  orderId?: string; 
+  notes?: string;
+  supplier?: string;
+  sendOutTime?: string;
+};
 
 const baseHeaders = ["图片", "名称", "材料", "数量", "表面处理", "备注", "外协"];
 const quotationHeaders = ["单价", "总价"];
@@ -21,7 +28,6 @@ const quotationColCount = quotationHeaders.length;
 const productionColCount = productionHeaders.length;
 const outsourcingColIndex = baseColCount - 1;
 const baseHeadersWithoutOutsourcing = baseHeaders.slice(0, outsourcingColIndex);
-const outsourcingHeader = baseHeaders[outsourcingColIndex];
 
 export default function PrintPage({ params }: { params: { mode: Mode } }) {
   const { mode } = params;
@@ -49,29 +55,20 @@ export default function PrintPage({ params }: { params: { mode: Mode } }) {
         setMetaData(data.meta || {});
         const cells = data.cells as { row: number; col: number; type: string; content: string }[];
         const fetchedRows = cells.length ? Math.max(...cells.map((c) => c.row)) + 1 : 0;
-        const rowsCount = Math.max(fetchedRows, 8); // Ensure a minimum number of rows for print aesthetics
+        const rowsCount = Math.max(fetchedRows, 10);
         
-        const base: Cell[][] = Array.from({ length: rowsCount }, () =>
-          Array.from({ length: baseColCount }, () => ({ type: "text", content: "" }))
-        );
-        const quotation: Cell[][] = Array.from({ length: rowsCount }, () =>
-          Array.from({ length: quotationColCount }, () => ({ type: "text", content: "" }))
-        );
-        const production: Cell[][] = Array.from({ length: rowsCount }, () =>
-          Array.from({ length: productionColCount }, () => ({ type: "text", content: "" }))
-        );
+        const base: Cell[][] = Array.from({ length: rowsCount }, () => Array.from({ length: baseColCount }, () => ({ type: "text", content: "" })));
+        const quotation: Cell[][] = Array.from({ length: rowsCount }, () => Array.from({ length: quotationColCount }, () => ({ type: "text", content: "" })));
+        const production: Cell[][] = Array.from({ length: rowsCount }, () => Array.from({ length: productionColCount }, () => ({ type: "text", content: "" })));
 
         cells.forEach((cell) => {
-          if (cell.row >= rowsCount) return; // Ignore cells beyond our defined row count
+          if (cell.row >= rowsCount) return;
           if (cell.col < baseColCount) {
             base[cell.row][cell.col] = { type: cell.type, content: cell.content };
           } else if (cell.col < baseColCount + quotationColCount) {
             quotation[cell.row][cell.col - baseColCount] = { type: cell.type, content: cell.content };
           } else {
-            production[cell.row][cell.col - baseColCount - quotationColCount] = {
-              type: cell.type,
-              content: cell.content,
-            };
+            production[cell.row][cell.col - baseColCount - quotationColCount] = { type: cell.type, content: cell.content };
           }
         });
 
@@ -87,137 +84,160 @@ export default function PrintPage({ params }: { params: { mode: Mode } }) {
               const unitPrice = parseFloat(quotation[i][0].content) || 0;
               const totalPrice = quantity * unitPrice;
               const calculated = [
-                { ...quotation[i][0] },
-                { ...quotation[i][1], content: totalPrice > 0 ? totalPrice.toFixed(2) : "" },
+                { ...quotation[i][0], content: unitPrice > 0 ? unitPrice.toFixed(2) : '' },
+                { ...quotation[i][1], content: totalPrice > 0 ? totalPrice.toFixed(2) : '' },
               ];
-               // Add item number cell at the beginning
-              const itemNumberCell = { type: 'text', content: (i + 1).toString() };
+              const itemNumberCell = { type: 'text', content: row.some(c => c.content) ? (i + 1).toString() : '' };
               return [itemNumberCell, ...baseWithoutOutsourcing, ...calculated];
             });
             break;
           }
-          case "production": {
-            currentHeaders = [ ...baseHeadersWithoutOutsourcing, ...productionHeaders, outsourcingHeader ];
-            displayData = base.map((row, i) => {
-              const outsourcingCell = row[outsourcingColIndex];
-              const baseWithoutOutsourcing = row.slice(0, outsourcingColIndex);
-              return [...baseWithoutOutsourcing, ...production[i], outsourcingCell];
-            });
-            break;
-          }
           case "outsourcing": {
-            const headersBefore = baseHeadersWithoutOutsourcing.slice(0, 4);
-            const headersAfter = baseHeadersWithoutOutsourcing.slice(4);
-            currentHeaders = [...headersBefore, ...quotationHeaders, ...headersAfter, outsourcingHeader];
-            displayData = base.map((row, i) => {
-              const outsourcingCell = row[outsourcingColIndex];
-              const basePart1 = row.slice(0, 4);
-              const basePart2 = row.slice(4, outsourcingColIndex);
-              const quantity = parseFloat(row[3].content) || 0;
-              const unitPrice = parseFloat(quotation[i][0].content) || 0;
-              const totalPrice = quantity * unitPrice;
-              const calculated = [
-                { ...quotation[i][0] },
-                { ...quotation[i][1], content: totalPrice > 0 ? totalPrice.toFixed(2) : "" },
-              ];
-              return [...basePart1, ...calculated, ...basePart2, outsourcingCell];
+            // Updated header order
+            currentHeaders = [ "序号", "图片", "名称", "材料", "表面处理", "数量", "单价", "总价"];
+            
+            const outsourcedItems = base
+                .map((row, i) => ({ row, i }))
+                .filter(({ row }) => row[outsourcingColIndex].content === 'true');
+            
+            displayData = Array.from({ length: rowsCount }, (_, index) => {
+                if (index < outsourcedItems.length) {
+                    const { row, i } = outsourcedItems[index];
+                    // Updated cell order: [图片, 名称, 材料, 表面处理, 数量]
+                    const baseCells = [row[0], row[1], row[2], row[4], row[3]]; 
+                    
+                    const quantity = parseFloat(row[3].content) || 0;
+                    const unitPrice = parseFloat(quotation[i][0].content) || 0;
+                    const totalPrice = quantity * unitPrice;
+
+                    const calculatedPriceCells = [
+                      { ...quotation[i][0], content: unitPrice > 0 ? unitPrice.toFixed(2) : '' },
+                      { ...quotation[i][1], content: totalPrice > 0 ? totalPrice.toFixed(2) : '' },
+                    ];
+
+                    const itemNumberCell = { type: 'text', content: (index + 1).toString() };
+                    
+                    return [itemNumberCell, ...baseCells, ...calculatedPriceCells];
+                }
+                return Array(currentHeaders.length).fill({ type: 'text', content: '' });
             });
             break;
           }
-          case "shipping":
           default: {
-            currentHeaders = [...baseHeadersWithoutOutsourcing, outsourcingHeader];
-            displayData = base.map((row) => {
-              const outsourcingCell = row[outsourcingColIndex];
-              const baseWithoutOutsourcing = row.slice(0, outsourcingColIndex);
-              return [...baseWithoutOutsourcing, outsourcingCell];
-            });
+            displayData = base.map((row) => row.slice(0, outsourcingColIndex));
+            currentHeaders = baseHeadersWithoutOutsourcing;
             break;
           }
         }
-
         setHeaders(currentHeaders);
         setRows(displayData);
       });
   }, [taskId, mode]);
 
   const totalAmount = useMemo(() => {
-    if (mode !== 'quotation') return 0;
+    if (mode !== 'quotation' && mode !== 'outsourcing') return 0;
+    
+    const priceColIndex = headers.indexOf('总价');
+    if (priceColIndex === -1) return 0;
+    
     return rows.reduce((sum, row) => {
-        // The "总价" (Total Price) column is the last one in the quotation view.
-        const totalPriceCell = row[row.length - 1];
+        const totalPriceCell = row[priceColIndex];
         const price = parseFloat(totalPriceCell?.content) || 0;
         return sum + price;
     }, 0);
-  }, [rows, mode]);
-
+  }, [rows, headers, mode]);
 
   useEffect(() => {
     if (rows.length > 0) {
-      setTimeout(() => window.print(), 500); // Delay print to allow images to render
+      setTimeout(() => window.print(), 500);
     }
   }, [rows]);
 
   if (mode === 'quotation') {
     return (
+      <div className={styles.container}>
+        <header className={styles.header}>
+            <h1 className={styles.title}>手板报价单</h1>
+            <div className={styles.parties}>
+                <div className={styles.party}>
+                    <span>甲方：{metaData.customerName || '________________'}</span>
+                    <span>联系人：{metaData.contactPerson || '________________'}</span>
+                </div>
+                <div className={styles.party}>
+                    <span>乙方：杭州越侬模型科技有限公司</span>
+                    <span>联系人：傅士勤</span>
+                </div>
+            </div>
+             <div className={styles.meta}>
+                <span>订单号: {metaData.orderId || 'N/A'}</span>
+                <span>电话: 13777479066</span>
+                <span>日期: {new Date().toLocaleDateString('zh-CN')}</span>
+                <span>地址：杭州市富阳区</span>
+            </div>
+        </header>
+        <main>
+            <table className={styles.table}>
+                <thead><tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr></thead>
+                <tbody>
+                    {rows.map((row, i) => (
+                        <tr key={i}>{row.map((cell, j) => (
+                            <td key={j} className={['单价', '总价', '数量'].includes(headers[j]) ? styles.numeric : ''}>
+                                {cell.type === "image" && cell.content ? <img src={cell.content} alt="" className={styles.imageCell} /> : <span>{cell.content}</span>}
+                            </td>))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </main>
+        <footer className={styles.footer}>
+            <div className={styles.notes}>备注：{metaData.notes || '无'}</div>
+            <div className={styles.summary}>
+                <div className={styles.total}>
+                    <span>合计 (RMB):</span>
+                    <span className={styles.totalAmount}>{totalAmount > 0 ? totalAmount.toFixed(2) : '0.00'}</span>
+                </div>
+                <div className={styles.signature}>
+                    <span>审核/签字:</span><span className={styles.signatureLine}></span>
+                </div>
+            </div>
+        </footer>
+      </div>
+    );
+  }
+
+  if (mode === 'outsourcing') {
+    return (
         <div className={styles.container}>
             <header className={styles.header}>
-                <h1 className={styles.title}>手板报价单</h1>
-                <div className={styles.parties}>
-                    <div className={styles.party}>
-                        <span>甲方：{metaData.customerName || '________________'}</span>
-                        <span>联系人：{metaData.contactPerson || '________________'}</span>
-                    </div>
-                    <div className={styles.party}>
-                        <span>乙方：杭州越侬模型科技有限公司</span>
-                        <span>联系人：傅士勤</span>
-                    </div>
-                </div>
-                 <div className={styles.meta}>
-                    <span>订单号: {metaData.orderId || 'N/A'}</span>
-                    <span>电话: 13777479066</span>
-                    <span>日期: {new Date().toLocaleDateString('zh-CN')}</span>
-                    <span>地址：杭州市富阳区</span>
+                <h1 className={styles.title}>采&nbsp;&nbsp;购&nbsp;&nbsp;单</h1>
+                <div className={styles.metaGrid}>
+                    <span>采购单号：{metaData.orderId || '________________'}</span>
+                    <span>寄出时间：{metaData.sendOutTime ? new Date(metaData.sendOutTime).toLocaleDateString('zh-CN') : '________________'}</span>
+                    <span>供应商：{metaData.supplier || '________________'}</span>
+                    <span>联系人：{metaData.contactPerson || '________________'}</span>
+                    <span className={styles.fullWidth}>收件地址：杭州市富阳区</span>
+                    <span className={styles.fullWidth}>收件人：王雪梅</span>
                 </div>
             </header>
-
             <main>
                 <table className={styles.table}>
-                    <thead>
-                        <tr>
-                            {headers.map((h) => <th key={h}>{h}</th>)}
-                        </tr>
-                    </thead>
+                    <thead><tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr></thead>
                     <tbody>
                         {rows.map((row, i) => (
-                            <tr key={i}>
-                                {row.map((cell, j) => (
-                                    <td key={j} className={headers[j] === '单价' || headers[j] === '总价' || headers[j] === '数量' ? styles.numeric : ''}>
-                                        {cell.type === "image" && cell.content ? (
-                                            <img src={cell.content} alt="" className={styles.imageCell} />
-                                        ) : (
-                                            <span>{cell.content}</span>
-                                        )}
-                                    </td>
-                                ))}
+                            <tr key={i}>{row.map((cell, j) => (
+                                <td key={j} className={['单价', '总价', '数量'].includes(headers[j]) ? styles.numeric : ''}>
+                                    {cell.type === "image" && cell.content ? <img src={cell.content} alt="" className={styles.imageCell} /> : <span>{cell.content}</span>}
+                                </td>))}
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </main>
-
             <footer className={styles.footer}>
-                <div className={styles.notes}>
-                    备注：{metaData.notes || '无'}
-                </div>
                 <div className={styles.summary}>
                     <div className={styles.total}>
                         <span>合计 (RMB):</span>
                         <span className={styles.totalAmount}>{totalAmount > 0 ? totalAmount.toFixed(2) : '0.00'}</span>
-                    </div>
-                    <div className={styles.signature}>
-                        <span>审核/签字:</span>
-                        <span className={styles.signatureLine}></span>
                     </div>
                 </div>
             </footer>
@@ -225,31 +245,10 @@ export default function PrintPage({ params }: { params: { mode: Mode } }) {
     );
   }
 
-  // Fallback for other modes
   return (
     <div>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            {headers.map((h) => (<th key={h}>{h}</th>))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i}>
-              {row.map((cell, j) => (
-                <td key={j}>
-                  {cell.type === "image" && cell.content ? (
-                    <img src={cell.content} alt="" style={{ maxWidth: "100px", maxHeight: "100px" }}/>
-                  ) : (
-                    cell.content
-                  )}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <h2>{mode.charAt(0).toUpperCase() + mode.slice(1)} Print View</h2>
+      <p>This print view has not been designed yet.</p>
     </div>
   );
 }

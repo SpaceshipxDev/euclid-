@@ -1,12 +1,135 @@
+/*
+ *  styles/outsourcing.module.css
+ *  Minimalist and elegant styles for the Purchase Order sheet.
+ */
+
+.container {
+  background: white;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 15mm;
+  margin: 0 auto;
+  box-sizing: border-box;
+  color: #1c1c1e;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  .container {
+    margin: 0;
+    padding: 15mm;
+    box-shadow: none;
+    border: none;
+  }
+}
+
+/* --- HEADER --- */
+.header {
+  border-bottom: 1px solid #e5e5e7;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 24px;
+  color: #000;
+  letter-spacing: 0.2em;
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 20px;
+  font-size: 13px;
+  color: #333;
+}
+
+.metaGrid span {
+  padding: 4px 0;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+/* --- MAIN TABLE --- */
 .table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 13px;
 }
-.table th {
-  background-color: #fff0e5;
-  color: #663000;
+
+.table thead th {
+  font-weight: 500;
+  color: #8a8a8e;
+  padding: 10px 12px;
+  border-bottom: 1.5px solid #d1d1d6;
+  text-align: center;
+  white-space: nowrap; 
 }
-.table th, .table td {
-  border: 1px solid #ffbc80;
-  padding: 4px 8px;
+
+.table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5e5e7;
+  vertical-align: middle;
+  text-align: center;
+  height: 40px; 
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.numeric {
+  text-align: right !important;
+  font-family: "SF Mono", "Menlo", "Monaco", Consolas, monospace;
+}
+
+.imageCell {
+  max-width: 70px;
+  max-height: 70px;
+  object-fit: contain;
+  border-radius: 6px;
+  display: block;
+  margin: 0 auto;
+}
+
+/* --- FOOTER --- */
+.footer {
+  margin-top: auto;
+  padding-top: 24px;
+  border-top: 1px solid #e5e5e7;
+  font-size: 13px;
+}
+
+.summary {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+}
+
+.total {
+  text-align: right;
+}
+
+.total span:first-child {
+  color: #636366;
+  font-size: 14px;
+}
+
+.totalAmount {
+  display: block;
+  font-size: 22px;
+  font-weight: 600;
+  color: #000;
+  margin-top: 4px;
 }
