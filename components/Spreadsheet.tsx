@@ -13,6 +13,8 @@ type MetaData = {
   contactPerson: string;
   notes: string;
   supplier: string;
+  supplierContact: string;
+  purchaseNotes: string;
   sendOutTime: string;
 };
 
@@ -167,16 +169,20 @@ const EditableCell: FC<EditableCellProps> = ({ cell, onUpdate }) => {
 };
 
 // --- MAIN COMPONENT ---
+const defaultMetaData: MetaData = {
+  customerName: '',
+  orderId: '',
+  contactPerson: '',
+  notes: '',
+  supplier: '',
+  supplierContact: '',
+  purchaseNotes: '',
+  sendOutTime: '',
+};
+
 const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
   const [mode, setMode] = useState<Mode>('quotation');
-  const [metaData, setMetaData] = useState<MetaData>({
-    customerName: '',
-    orderId: '',
-    contactPerson: '',
-    notes: '',
-    supplier: '',
-    sendOutTime: '',
-  });
+  const [metaData, setMetaData] = useState<MetaData>(defaultMetaData);
 
   const [baseData, setBaseData] = useState<Row[]>([]);
   const [quotationExtraData, setQuotationExtraData] = useState<Row[]>([]);
@@ -186,7 +192,7 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
     fetch(`/api/spreadsheet?taskId=${taskId}`)
       .then((res) => res.json())
       .then((data) => {
-        setMetaData(data.meta || {});
+        setMetaData({ ...defaultMetaData, ...(data.meta || {}) });
           const cells = data.cells as { row: number; col: number; type: 'text' | 'image' | 'checkbox'; content: string }[];
         const fetchedRows = cells.length ? Math.max(...cells.map((c) => c.row)) + 1 : 0;
         const rows = fetchedRows > 0 ? fetchedRows : 4;
@@ -360,13 +366,18 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
     contactPerson: '联系人',
     notes: '备注',
     supplier: '供应商',
+    supplierContact: '联系人',
+    purchaseNotes: '采购备注',
     sendOutTime: '寄出时间',
   };
 
-  const displayedFields: (keyof MetaData)[] =
-    mode === 'outsourcing'
-      ? ['supplier', 'orderId', 'contactPerson', 'sendOutTime', 'notes']
-      : ['customerName', 'orderId', 'contactPerson', 'notes'];
+  const baseFields: (keyof MetaData)[] = ['customerName', 'orderId', 'contactPerson', 'notes'];
+  const outsourcingFields: (keyof MetaData)[] = [
+    'supplier',
+    'supplierContact',
+    'purchaseNotes',
+    'sendOutTime',
+  ];
 
   const handleAddNewRow = () => {
     const newRowIndex = displayData.length;
@@ -397,7 +408,7 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
   };
 
   return (
-    <main className="flex justify-center min-h-screen w-full bg-neutral-100 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 p-4 sm:p-8 transition-colors duration-300 print:bg-white print:p-0">
+    <main className="flex justify-center min-h-screen w-full overflow-auto bg-neutral-100 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 p-4 sm:p-8 transition-colors duration-300 print:bg-white print:p-0">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -435,7 +446,7 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 mb-8 print:grid-cols-4">
-          {displayedFields.map((field) => (
+          {baseFields.map((field) => (
             <div key={field} className={`flex flex-col gap-1 ${field === 'notes' ? 'col-span-2 md:col-span-1' : ''}`}>
               <label
                 htmlFor={field}
@@ -455,41 +466,62 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-white/20 bg-white/60 dark:bg-black/50 shadow-lg backdrop-blur-xl print:shadow-none print:border-neutral-300 print:rounded-none">
-          <div className="overflow-x-auto">
-            <div
-              className="grid w-full"
-              style={{ gridTemplateColumns: `50px repeat(${currentHeaders.length - 1}, minmax(150px, 1fr)) 60px` }}
-            >
-              <div className="sticky top-0 z-10 print:hidden"></div>
-              {currentHeaders.map((header) => (
-                <div
-                  key={header}
-                  className="sticky top-0 z-10 font-medium text-sm text-neutral-600 dark:text-neutral-300 p-3 text-center bg-white/30 dark:bg-black/20 backdrop-blur-md border-b border-r border-neutral-200/50 dark:border-neutral-800/70 print:bg-neutral-100 print:text-black print:border-neutral-300"
+        {mode === 'outsourcing' && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 mb-8 print:grid-cols-4">
+            {outsourcingFields.map((field) => (
+              <div key={field} className={`flex flex-col gap-1 ${field === 'purchaseNotes' ? 'col-span-2 md:col-span-1' : ''}`}>
+                <label
+                  htmlFor={field}
+                  className="text-sm font-medium text-neutral-600 dark:text-neutral-400 print:text-black"
                 >
-                  {header}
-                </div>
-              ))}
+                  {fieldLabels[field]}
+                </label>
+                <input
+                  type={field === 'sendOutTime' ? 'date' : 'text'}
+                  id={field}
+                  name={field}
+                  value={metaData[field]}
+                  onChange={handleMetaChange}
+                  className="w-full bg-white/60 dark:bg-black/50 rounded-lg px-3 py-2 text-base border-none outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 transition-all duration-200 print:bg-transparent print:p-0 print:text-black"
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
-              {displayData.map((row, rowIndex) => (
-                <div key={`row-${rowIndex}`} className="contents">
-                  <div className="sticky left-0 font-medium text-xs text-neutral-500 dark:text-neutral-400 p-3 text-center bg-white/30 dark:bg-black/20 backdrop-blur-md border-t border-r border-neutral-200/50 dark:border-neutral-800/70 flex items-center justify-center print:bg-neutral-100 print:text-black print:border-neutral-300">
-                    {rowIndex + 1}
-                  </div>
-                  {row.map((cell, colIndex) => (
-                    <div
-                      key={cell.id}
-                      className="border-t border-r border-neutral-200/50 dark:border-neutral-800/70 print:border-neutral-300"
-                    >
-                      <EditableCell
-                        cell={cell}
-                        onUpdate={(newContent, newType) => handleUpdateCell(rowIndex, colIndex, newContent, newType)}
-                      />
-                    </div>
-                  ))}
+        <div className="overflow-x-auto rounded-2xl border border-white/20 bg-white/60 dark:bg-black/50 shadow-lg backdrop-blur-xl print:shadow-none print:border-neutral-300 print:rounded-none">
+          <div
+            className="grid w-full"
+            style={{ gridTemplateColumns: `50px repeat(${currentHeaders.length - 1}, minmax(150px, 1fr)) 60px` }}
+          >
+            <div className="sticky top-0 z-10 print:hidden"></div>
+            {currentHeaders.map((header) => (
+              <div
+                key={header}
+                className="sticky top-0 z-10 font-medium text-sm text-neutral-600 dark:text-neutral-300 p-3 text-center bg-white/30 dark:bg-black/20 backdrop-blur-md border-b border-r border-neutral-200/50 dark:border-neutral-800/70 print:bg-neutral-100 print:text-black print:border-neutral-300"
+              >
+                {header}
+              </div>
+            ))}
+
+            {displayData.map((row, rowIndex) => (
+              <div key={`row-${rowIndex}`} className="contents">
+                <div className="sticky left-0 font-medium text-xs text-neutral-500 dark:text-neutral-400 p-3 text-center bg-white/30 dark:bg-black/20 backdrop-blur-md border-t border-r border-neutral-200/50 dark:border-neutral-800/70 flex items-center justify-center print:bg-neutral-100 print:text-black print:border-neutral-300">
+                  {rowIndex + 1}
                 </div>
-              ))}
-            </div>
+                {row.map((cell, colIndex) => (
+                  <div
+                    key={cell.id}
+                    className="border-t border-r border-neutral-200/50 dark:border-neutral-800/70 print:border-neutral-300"
+                  >
+                    <EditableCell
+                      cell={cell}
+                      onUpdate={(newContent, newType) => handleUpdateCell(rowIndex, colIndex, newContent, newType)}
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         </div>
         <div className="flex justify-center mt-4 print:hidden">
