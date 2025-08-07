@@ -10,12 +10,14 @@ import shippingStyles from "../shipping.module.css";
 type Mode = "quotation" | "outsourcing" | "production" | "shipping";
 
 type Cell = { type: string; content: string };
-type MetaData = { 
-  customerName?: string; 
-  contactPerson?: string; 
-  orderId?: string; 
+type MetaData = {
+  customerName?: string;
+  contactPerson?: string;
+  orderId?: string;
   notes?: string;
   supplier?: string;
+  supplierContact?: string;
+  purchaseNotes?: string;
   sendOutTime?: string;
 };
 
@@ -214,7 +216,7 @@ export default function PrintPage({ params }: { params: { mode: Mode } }) {
                     <span>采购单号：{metaData.orderId || '________________'}</span>
                     <span>寄出时间：{metaData.sendOutTime ? new Date(metaData.sendOutTime).toLocaleDateString('zh-CN') : '________________'}</span>
                     <span>供应商：{metaData.supplier || '________________'}</span>
-                    <span>联系人：{metaData.contactPerson || '________________'}</span>
+                    <span>联系人：{metaData.supplierContact || '________________'}</span>
                     <span className={styles.fullWidth}>收件地址：杭州市富阳区</span>
                     <span className={styles.fullWidth}>收件人：王雪梅</span>
                 </div>
@@ -234,6 +236,7 @@ export default function PrintPage({ params }: { params: { mode: Mode } }) {
                 </table>
             </main>
             <footer className={styles.footer}>
+                <div className={styles.notes}>采购备注：{metaData.purchaseNotes || '无'}</div>
                 <div className={styles.summary}>
                     <div className={styles.total}>
                         <span>合计 (RMB):</span>

@@ -111,6 +111,12 @@
   font-size: 13px;
 }
 
+.notes {
+  color: #636366;
+  margin-bottom: 20px;
+  min-height: 40px;
+}
+
 .summary {
   display: flex;
   justify-content: flex-end;
