@@ -7,6 +7,14 @@ import { motion } from "framer-motion";
 type Cell = { id: string; type: 'text' | 'image' | 'checkbox'; content: string };
 type Row = Cell[];
 type Mode = 'quotation' | 'outsourcing' | 'production' | 'shipping';
+type MetaData = {
+  customerName: string;
+  orderId: string;
+  contactPerson: string;
+  notes: string;
+  supplier: string;
+  sendOutTime: string;
+};
 
 // --- HEADERS ---
 
@@ -161,7 +169,14 @@ const EditableCell: FC<EditableCellProps> = ({ cell, onUpdate }) => {
 // --- MAIN COMPONENT ---
 const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
   const [mode, setMode] = useState<Mode>('quotation');
-  const [metaData, setMetaData] = useState({ customerName: '', orderId: '', contactPerson: '', notes: '' });
+  const [metaData, setMetaData] = useState<MetaData>({
+    customerName: '',
+    orderId: '',
+    contactPerson: '',
+    notes: '',
+    supplier: '',
+    sendOutTime: '',
+  });
 
   const [baseData, setBaseData] = useState<Row[]>([]);
   const [quotationExtraData, setQuotationExtraData] = useState<Row[]>([]);
@@ -339,6 +354,20 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
     });
   };
 
+  const fieldLabels: Record<keyof MetaData, string> = {
+    customerName: '客户名称',
+    orderId: '单号',
+    contactPerson: '联系人',
+    notes: '备注',
+    supplier: '供应商',
+    sendOutTime: '寄出时间',
+  };
+
+  const displayedFields: (keyof MetaData)[] =
+    mode === 'outsourcing'
+      ? ['supplier', 'orderId', 'contactPerson', 'sendOutTime', 'notes']
+      : ['customerName', 'orderId', 'contactPerson', 'notes'];
+
   const handleAddNewRow = () => {
     const newRowIndex = displayData.length;
     const newBaseRow: Row = Array.from({ length: baseColCount }, (_, c) => ({
@@ -406,19 +435,19 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 mb-8 print:grid-cols-4">
-          {['customerName', 'orderId', 'contactPerson', 'notes'].map((field) => (
+          {displayedFields.map((field) => (
             <div key={field} className={`flex flex-col gap-1 ${field === 'notes' ? 'col-span-2 md:col-span-1' : ''}`}>
               <label
                 htmlFor={field}
                 className="text-sm font-medium text-neutral-600 dark:text-neutral-400 print:text-black"
               >
-                {{ customerName: '客户名称', orderId: '单号', contactPerson: '联系人', notes: '备注' }[field]}
+                {fieldLabels[field]}
               </label>
               <input
-                type="text"
+                type={field === 'sendOutTime' ? 'date' : 'text'}
                 id={field}
                 name={field}
-                value={metaData[field as keyof typeof metaData]}
+                value={metaData[field]}
                 onChange={handleMetaChange}
                 className="w-full bg-white/60 dark:bg-black/50 rounded-lg px-3 py-2 text-base border-none outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 transition-all duration-200 print:bg-transparent print:p-0 print:text-black"
               />
