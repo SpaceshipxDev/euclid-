@@ -46,13 +46,17 @@ const formatRelativeTime = (date: Date) => {
 /* ────────────────────────────────  📋  COLUMN SETUP  ───────────────────────────── */
 
 const columns: ColumnData[] = [
-  { id: "create", title: "建单" },
+  { id: "quote", title: "报价" },
   { id: "order", title: "制单" },
   { id: "approval", title: "审批" },
   { id: "outsourcing", title: "外协" },
+  { id: "daohe", title: "道禾" },
   { id: "programming", title: "编程" },
   { id: "machine", title: "操机" },
+  { id: "manual", title: "手工" },
+  { id: "surface", title: "表面处理" },
   { id: "inspection", title: "检验" },
+  { id: "shipping", title: "出货" },
 ];
 
 /* ────────────────────────────────  🎯  ULTRA-MODERN FULL-SCREEN EDITOR  ───────────────────────────── */
