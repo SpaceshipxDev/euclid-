@@ -17,19 +17,6 @@ const baseColCount = baseHeaders.length;
 const quotationColCount = quotationHeaders.length;
 const productionColCount = productionHeaders.length;
 
-const baseHeadersWithoutOutsourcing = baseHeaders.slice(0, -1);
-const outsourcingHeader = baseHeaders[baseHeaders.length - 1];
-const buildHeaders = (extras: string[]) => [
-  ...baseHeadersWithoutOutsourcing,
-  ...extras,
-  outsourcingHeader,
-];
-const buildRow = (row: Row, extras: Row): Row => [
-  ...row.slice(0, -1),
-  ...extras,
-  row[row.length - 1],
-];
-
 function cellId(col: number, row: number) {
   return `${String.fromCharCode(65 + col)}${row + 1}`;
 }
@@ -229,29 +216,33 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
     switch (mode) {
       case 'quotation':
         return {
-          currentHeaders: buildHeaders(quotationHeaders),
+          currentHeaders: [...baseHeaders, ...quotationHeaders],
           displayData: baseData.map((row, i) => {
             const quantity = parseFloat(row[3].content) || 0;
             const unitPrice = parseFloat(quotationExtraData[i][0].content) || 0;
             const totalPrice = quantity * unitPrice;
-            const calculatedRow: Row = [
+            const calculatedRow = [
               { ...quotationExtraData[i][0] },
               { ...quotationExtraData[i][1], content: totalPrice > 0 ? totalPrice.toFixed(2) : '' },
             ];
-            return buildRow(row, calculatedRow);
+            return [...row, ...calculatedRow];
           }),
+        };
+      case 'outsourcing':
+        return {
+          currentHeaders: baseHeaders,
+          displayData: baseData,
         };
       case 'production':
         return {
-          currentHeaders: buildHeaders(productionHeaders),
-          displayData: baseData.map((row, i) => buildRow(row, productionExtraData[i])),
+          currentHeaders: [...baseHeaders, ...productionHeaders],
+          displayData: baseData.map((row, i) => [...row, ...productionExtraData[i]]),
         };
-      case 'outsourcing':
       case 'shipping':
       default:
         return {
-          currentHeaders: buildHeaders([]),
-          displayData: baseData.map((row) => buildRow(row, [])),
+          currentHeaders: baseHeaders,
+          displayData: baseData,
         };
     }
   })();
@@ -262,27 +253,9 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
     newContent: string,
     newType: 'text' | 'image' | 'checkbox'
   ) => {
-    const baseWithoutOutsourcingCount = baseColCount - 1;
-    const extraCount =
-      mode === 'quotation'
-        ? quotationColCount
-        : mode === 'production'
-        ? productionColCount
-        : 0;
-
-    let globalCol: number;
-    if (colIndex < baseWithoutOutsourcingCount) {
-      globalCol = colIndex;
-    } else if (colIndex < baseWithoutOutsourcingCount + extraCount) {
-      if (mode === 'quotation') {
-        globalCol = colIndex + 1;
-      } else if (mode === 'production') {
-        globalCol = baseColCount + quotationColCount + (colIndex - baseWithoutOutsourcingCount);
-      } else {
-        globalCol = colIndex;
-      }
-    } else {
-      globalCol = baseColCount - 1;
+    let globalCol = colIndex;
+    if (mode === 'production' && colIndex >= baseColCount) {
+      globalCol = baseColCount + quotationColCount + (colIndex - baseColCount);
     }
 
     const res = await fetch(`/api/spreadsheet?taskId=${taskId}`, {
@@ -410,7 +383,7 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
           <div className="overflow-x-auto">
             <div
               className="grid w-full"
-              style={{ gridTemplateColumns: `50px repeat(${currentHeaders.length - 1}, minmax(150px, 1fr)) 40px` }}
+              style={{ gridTemplateColumns: `50px repeat(${currentHeaders.length}, minmax(150px, 1fr))` }}
             >
               <div className="sticky top-0 z-10 print:hidden"></div>
               {currentHeaders.map((header) => (
