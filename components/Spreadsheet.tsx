@@ -4,12 +4,12 @@ import { useState, useRef, useEffect, FC, ChangeEvent, KeyboardEvent, ClipboardE
 import { motion } from "framer-motion";
 
 // --- TYPES ---
-type Cell = { id: string; type: 'text' | 'image'; content: string };
+type Cell = { id: string; type: 'text' | 'image' | 'checkbox'; content: string };
 type Row = Cell[];
-type Mode = 'quotation' | 'production' | 'shipping';
+type Mode = 'quotation' | 'outsourcing' | 'production' | 'shipping';
 
 // --- HEADERS ---
-const baseHeaders = ["图片", "名称", "材料", "数量", "表面处理", "备注"];
+const baseHeaders = ["图片", "名称", "材料", "数量", "表面处理", "备注", "外协"];
 const quotationHeaders = ["单价", "总价"];
 const productionHeaders = ["加工方式", "工艺要求"];
 
@@ -27,6 +27,7 @@ function cellId(col: number, row: number) {
 const ModeSelector: FC<{ selected: Mode; onSelect: (mode: Mode) => void }> = ({ selected, onSelect }) => {
   const modes: { id: Mode; label: string }[] = [
     { id: 'quotation', label: '报价单' },
+    { id: 'outsourcing', label: '外发单' },
     { id: 'production', label: '生产单' },
     { id: 'shipping', label: '出货单' },
   ];
@@ -60,7 +61,7 @@ const ModeSelector: FC<{ selected: Mode; onSelect: (mode: Mode) => void }> = ({ 
 // EditableCell component
 interface EditableCellProps {
   cell: Cell;
-  onUpdate: (newContent: string, newType: 'text' | 'image') => void;
+  onUpdate: (newContent: string, newType: 'text' | 'image' | 'checkbox') => void;
 }
 const EditableCell: FC<EditableCellProps> = ({ cell, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -106,6 +107,18 @@ const EditableCell: FC<EditableCellProps> = ({ cell, onUpdate }) => {
     }
     setIsEditing(false);
   };
+
+  if (cell.type === 'checkbox') {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <input
+          type="checkbox"
+          checked={cell.content === 'true'}
+          onChange={(e) => onUpdate(e.target.checked ? 'true' : 'false', 'checkbox')}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -155,22 +168,26 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
       .then((res) => res.json())
       .then((data) => {
         setMetaData(data.meta || {});
-        const cells = data.cells as { row: number; col: number; type: 'text' | 'image'; content: string }[];
+          const cells = data.cells as { row: number; col: number; type: 'text' | 'image' | 'checkbox'; content: string }[];
         const fetchedRows = cells.length ? Math.max(...cells.map((c) => c.row)) + 1 : 0;
         const rows = fetchedRows > 0 ? fetchedRows : 4;
         const base: Row[] = [];
         const quotation: Row[] = [];
         const production: Row[] = [];
 
-        for (let r = 0; r < rows; r++) {
-          base[r] = [];
-          for (let c = 0; c < baseColCount; c++) {
-            base[r][c] = { id: cellId(c, r), type: 'text', content: '' };
-          }
-          quotation[r] = [];
-          for (let c = 0; c < quotationColCount; c++) {
-            quotation[r][c] = { id: cellId(baseColCount + c, r), type: 'text', content: '' };
-          }
+          for (let r = 0; r < rows; r++) {
+            base[r] = [];
+            for (let c = 0; c < baseColCount; c++) {
+              base[r][c] = {
+                id: cellId(c, r),
+                type: c === baseColCount - 1 ? 'checkbox' : 'text',
+                content: '',
+              };
+            }
+            quotation[r] = [];
+            for (let c = 0; c < quotationColCount; c++) {
+              quotation[r][c] = { id: cellId(baseColCount + c, r), type: 'text', content: '' };
+            }
           production[r] = [];
           for (let c = 0; c < productionColCount; c++) {
             production[r][c] = { id: cellId(baseColCount + quotationColCount + c, r), type: 'text', content: '' };
@@ -211,6 +228,11 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
             return [...row, ...calculatedRow];
           }),
         };
+      case 'outsourcing':
+        return {
+          currentHeaders: baseHeaders,
+          displayData: baseData,
+        };
       case 'production':
         return {
           currentHeaders: [...baseHeaders, ...productionHeaders],
@@ -229,7 +251,7 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
     rowIndex: number,
     colIndex: number,
     newContent: string,
-    newType: 'text' | 'image'
+    newType: 'text' | 'image' | 'checkbox'
   ) => {
     let globalCol = colIndex;
     if (mode === 'production' && colIndex >= baseColCount) {
@@ -275,7 +297,7 @@ const Spreadsheet: FC<{ taskId: string }> = ({ taskId }) => {
     const newRowIndex = displayData.length;
     const newBaseRow: Row = Array.from({ length: baseColCount }, (_, c) => ({
       id: cellId(c, newRowIndex),
-      type: 'text',
+      type: c === baseColCount - 1 ? 'checkbox' : 'text',
       content: '',
     }));
     const newQuotationRow: Row = Array.from({ length: quotationColCount }, (_, c) => ({
